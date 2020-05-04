@@ -20,6 +20,7 @@ module Hasql.Migration
     runMigration
     , loadMigrationFromFile
     , loadMigrationsFromDirectory
+    , updateChecksum
 
     -- * Migration types
     , MigrationCommand(..)
@@ -160,6 +161,20 @@ checkScript name checksum =
             [ "select checksum from schema_migrations "
             , "where filename = $1 limit 1"
             ]
+
+-- | Updates the checksum of a script **without condition**.
+-- It simply takes the current hash of the file and updates the database with 
+-- its new value.
+-- If a migration stumbles upon a 'ScriptModified' or a 'ChecksumMismatch' error
+-- perhaps you want to automatically compensate for this checksum diff.
+updateChecksum :: ScriptName -> BS.ByteString -> Transaction ()
+updateChecksum name contents = do
+    let checksum = md5Hash contents
+    sql contents
+    statement (name, checksum) (Statement q enc Decoders.noResult False)
+    where
+        q = "update schema_migrations set checksum=$2 where filename=$1"
+        enc = ((T.pack . fst) >$< Encoders.param (Encoders.nonNullable Encoders.text)) <> (snd >$< Encoders.param (Encoders.nonNullable Encoders.text))
 
 -- | Calculates the MD5 checksum of the provided bytestring in base64
 -- encoding.
