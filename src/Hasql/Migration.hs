@@ -170,7 +170,6 @@ checkScript name checksum =
 updateChecksum :: ScriptName -> BS.ByteString -> Transaction ()
 updateChecksum name contents = do
     let checksum = md5Hash contents
-    sql contents
     statement (name, checksum) (Statement q enc Decoders.noResult False)
     where
         q = "update schema_migrations set checksum=$2 where filename=$1"
